@@ -50,8 +50,7 @@ def process_conv_2d_layer(layer, input_img):
     img_width, img_height, img_chans = input_img.shape[1:4]
     kept_filters = []
     for filter_index in range(filter_cnt):
-        print('{}:, filter {} of {}'.format(
-            layer.name, filter_index, filter_cnt))
+        print(f'{layer.name}:, filter {filter_index} of {filter_cnt}')
 
         # we build a loss function that maximizes the activation
         # of the nth filter of the layer considered
@@ -107,19 +106,17 @@ def process_layers(model, out_dir):
         if layer_type in ['Model', 'Sequential']:
             result = process_layers(layer, out_dir)
         else:
-            process_func = process_layer_functions.get(layer_type, None)
+            process_func = process_layer_functions.get(layer_type)
             name = layer.name
             assert is_ascii(name)
             if process_func:
-                print('Processing layer {} ({} of {})'.format(
-                    layer.name, i, len(layers)))
+                print(f'Processing layer {layer.name} ({i} of {len(layers)})')
                 images_with_loss = process_func(layer, model.get_input_at(0))
                 for _, (image, loss) in enumerate(images_with_loss):
                     date_time_str = datetime.datetime.now().strftime("%Y-%m-%d_%H_%M_%S_%f")
                     if image.shape[-1] == 1:
                         image = image.reshape(image.shape[:-1])
-                    imsave('{}/{}_{}_{}_{}.png'.format(
-                        out_dir, date_time_str, name, i, loss), image)
+                    imsave(f'{out_dir}/{date_time_str}_{name}_{i}_{loss}.png', image)
     return result
 
 
@@ -141,14 +138,14 @@ def convert_sequential_to_model(model):
 def main():
     """Convert any Keras model to the frugally-deep model format."""
 
-    usage = 'usage: [Keras model in HDF5 format] [image output directory]'
     if len(sys.argv) != 3:
+        usage = 'usage: [Keras model in HDF5 format] [image output directory]'
         print(usage)
         sys.exit(1)
     else:
         in_path = sys.argv[1]
         out_dir = sys.argv[2]
-        print('loading {}'.format(in_path))
+        print(f'loading {in_path}')
         K.set_learning_phase(1)
         model = load_model(in_path)
         model = convert_sequential_to_model(model)

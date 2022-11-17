@@ -126,9 +126,8 @@ def get_test_model_exhaustive():
 
     inputs = [Input(shape=s) for s in input_shapes]
 
-    outputs = []
+    outputs = [Conv1D(1, 3, padding='valid')(inputs[6])]
 
-    outputs.append(Conv1D(1, 3, padding='valid')(inputs[6]))
     outputs.append(Conv1D(2, 1, padding='same')(inputs[6]))
     outputs.append(Conv1D(3, 4, padding='causal', dilation_rate=2)(inputs[6]))
     outputs.append(ZeroPadding1D(2)(inputs[6]))
@@ -267,24 +266,45 @@ def get_test_model_exhaustive():
 
     outputs.append(ReLU()(inputs[0]))
 
-    for axis in [-5, -4, -3, -2, -1, 1, 2, 3, 4, 5]:
-        outputs.append(Concatenate(axis=axis)([inputs[0], inputs[1]]))
-    for axis in [-4, -3, -2, -1, 1, 2, 3, 4]:
-        outputs.append(Concatenate(axis=axis)([inputs[2], inputs[3]]))
-    for axis in [-3, -2, -1, 1, 2, 3]:
-        outputs.append(Concatenate(axis=axis)([inputs[4], inputs[5]]))
-    for axis in [-2, -1, 1, 2]:
-        outputs.append(Concatenate(axis=axis)([inputs[6], inputs[7]]))
-    for axis in [-1, 1]:
-        outputs.append(Concatenate(axis=axis)([inputs[8], inputs[9]]))
-    for axis in [-1, 2]:
-        outputs.append(Concatenate(axis=axis)([inputs[14], inputs[15]]))
-    for axis in [-1, 3]:
-        outputs.append(Concatenate(axis=axis)([inputs[16], inputs[17]]))
-    for axis in [-1, 4]:
-        outputs.append(Concatenate(axis=axis)([inputs[18], inputs[19]]))
-    for axis in [-1, 5]:
-        outputs.append(Concatenate(axis=axis)([inputs[20], inputs[21]]))
+    outputs.extend(
+        Concatenate(axis=axis)([inputs[0], inputs[1]])
+        for axis in [-5, -4, -3, -2, -1, 1, 2, 3, 4, 5]
+    )
+
+    outputs.extend(
+        Concatenate(axis=axis)([inputs[2], inputs[3]])
+        for axis in [-4, -3, -2, -1, 1, 2, 3, 4]
+    )
+
+    outputs.extend(
+        Concatenate(axis=axis)([inputs[4], inputs[5]])
+        for axis in [-3, -2, -1, 1, 2, 3]
+    )
+
+    outputs.extend(
+        Concatenate(axis=axis)([inputs[6], inputs[7]])
+        for axis in [-2, -1, 1, 2]
+    )
+
+    outputs.extend(
+        Concatenate(axis=axis)([inputs[8], inputs[9]]) for axis in [-1, 1]
+    )
+
+    outputs.extend(
+        Concatenate(axis=axis)([inputs[14], inputs[15]]) for axis in [-1, 2]
+    )
+
+    outputs.extend(
+        Concatenate(axis=axis)([inputs[16], inputs[17]]) for axis in [-1, 3]
+    )
+
+    outputs.extend(
+        Concatenate(axis=axis)([inputs[18], inputs[19]]) for axis in [-1, 4]
+    )
+
+    outputs.extend(
+        Concatenate(axis=axis)([inputs[20], inputs[21]]) for axis in [-1, 5]
+    )
 
     outputs.append(UpSampling1D(size=2)(inputs[6]))
     # outputs.append(UpSampling1D(size=2)(inputs[8])) # ValueError: Input 0 of layer up_sampling1d_1 is incompatible with the layer: expected ndim=3, found ndim=2. Full shape received: [None, 16]
@@ -363,7 +383,7 @@ def get_test_model_exhaustive():
 
     shared_activation = Activation('tanh')
 
-    outputs = outputs + [
+    outputs += [
         Activation('tanh')(inputs[25]),
         Activation('hard_sigmoid')(inputs[25]),
         Activation('selu')(inputs[25]),
@@ -389,6 +409,7 @@ def get_test_model_exhaustive():
         x,
         shared_activation(x),
     ]
+
 
     model = Model(inputs=inputs, outputs=outputs, name='test_model_exhaustive')
     model.compile(loss='mse', optimizer='nadam')
@@ -419,7 +440,7 @@ def get_test_model_embedding():
     inputs = [Input(shape=s) for s in input_shapes]
 
     outputs = []
-    for k in range(0, len(input_shapes)):
+    for k in range(len(input_shapes)):
         embedding = Embedding(input_dim=input_dims[k], output_dim=output_dims[k])(inputs[k])
         lstm = LSTM(
             units=4,
@@ -450,8 +471,6 @@ def get_test_model_recurrent():
         (6, 7, 10, 3)
     ]
 
-    outputs = []
-
     inputs = [Input(shape=s) for s in input_shapes]
 
     inp = PReLU()(inputs[0])
@@ -474,8 +493,7 @@ def get_test_model_recurrent():
                  activation='selu',
                  recurrent_activation='sigmoid')(lstm2)
 
-    outputs.append(lstm3)
-
+    outputs = [lstm3]
     conv1 = Conv1D(2, 1, activation='sigmoid')(inputs[1])
     lstm4 = LSTM(units=15,
                  return_sequences=False,
@@ -489,15 +507,23 @@ def get_test_model_recurrent():
     time_dist_1 = TimeDistributed(Conv2D(2, (3, 3), use_bias=True))(inputs[3])
     flatten_1 = TimeDistributed(Flatten())(time_dist_1)
 
-    outputs.append(Bidirectional(LSTM(units=6,
-                                      return_sequences=True,
-                                      bias_initializer='random_uniform',
-                                      activation='tanh',
-                                      recurrent_activation='sigmoid'), merge_mode='ave')(flatten_1))
-
-    outputs.append(TimeDistributed(MaxPooling2D(2, 2))(inputs[3]))
-    outputs.append(TimeDistributed(AveragePooling2D(2, 2))(inputs[3]))
-    outputs.append(TimeDistributed(BatchNormalization())(inputs[3]))
+    outputs.extend(
+        (
+            Bidirectional(
+                LSTM(
+                    units=6,
+                    return_sequences=True,
+                    bias_initializer='random_uniform',
+                    activation='tanh',
+                    recurrent_activation='sigmoid',
+                ),
+                merge_mode='ave',
+            )(flatten_1),
+            TimeDistributed(MaxPooling2D(2, 2))(inputs[3]),
+            TimeDistributed(AveragePooling2D(2, 2))(inputs[3]),
+            TimeDistributed(BatchNormalization())(inputs[3]),
+        )
+    )
 
     nested_inputs = Input(shape=input_shapes[0][1:])
     nested_x = Dense(5, activation='relu')(nested_inputs)
@@ -554,10 +580,7 @@ def get_test_model_lstm():
             recurrent_activation='sigmoid',
             return_state=True
         )(inp)
-        outputs.append(lstm_state)
-        outputs.append(state_h)
-        outputs.append(state_c)
-
+        outputs.extend((lstm_state, state_h, state_c))
         lstm_bidi_sequences = Bidirectional(
             LSTM(
                 units=4,
@@ -589,9 +612,7 @@ def get_test_model_lstm():
                 use_bias=True
             )
         )(inp)
-    outputs.append(lstm_gpu_regular)
-    outputs.append(lstm_gpu_bidi)
-
+    outputs.extend((lstm_gpu_regular, lstm_gpu_bidi))
     outputs.extend(LSTM(units=12, return_sequences=True,
                         return_state=True)(inputs[2], initial_state=[inputs[3], inputs[4]]))
 
@@ -685,9 +706,7 @@ def get_test_model_gru_stateful_optional(stateful):
                 use_bias=True
             )
         )(inp)
-        outputs.append(gru_gpu_regular)
-        outputs.append(gru_gpu_bidi)
-
+        outputs.extend((gru_gpu_regular, gru_gpu_bidi))
     model = Model(inputs=inputs, outputs=outputs, name='test_model_gru')
     model.compile(loss='mse', optimizer='nadam')
 
@@ -696,7 +715,7 @@ def get_test_model_gru_stateful_optional(stateful):
     data_in = generate_input_data(training_data_size, input_shapes)
     initial_data_out = model.predict(data_in)
     data_out = generate_output_data(training_data_size, initial_data_out)
-    model.fit(data_in, data_out, batch_size=stateful_batch_size, epochs=10)
+    model.fit(data_in, data_out, batch_size=training_data_size, epochs=10)
     return model
 
 
@@ -711,10 +730,8 @@ def get_test_model_variable():
 
     inputs = [Input(shape=s) for s in input_shapes]
 
-    outputs = []
+    outputs = [Concatenate()([inputs[0], inputs[1]])]
 
-    # same as axis=-1
-    outputs.append(Concatenate()([inputs[0], inputs[1]]))
     outputs.append(Conv2D(8, (3, 3), padding='same', activation='elu')(inputs[0]))
     outputs.append(Conv2D(8, (3, 3), padding='same', activation='relu')(inputs[1]))
     outputs.append(GlobalMaxPooling2D()(inputs[0]))
